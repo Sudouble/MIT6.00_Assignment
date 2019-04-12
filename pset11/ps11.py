@@ -1,3 +1,4 @@
+# coding: utf-8
 # Problem Set 11: Simulating robots
 # Name:
 # Collaborators:
@@ -6,7 +7,7 @@
 import math
 import random
 import ps11_visualize
-from matplotlib import pylab
+import matplotlib.pyplot as plt
 
 # === Provided classes
 
@@ -259,7 +260,9 @@ def runSimulation(num_robots, speed, width, height, min_coverage, num_trials,
                 RandomWalkRobot)
     visualize: a boolean (True to turn on visualization)
     """
-    anim = ps11_visualize.RobotVisualization(num_robots, width, height)
+    anim = 0
+    if visualize:
+        anim = ps11_visualize.RobotVisualization(num_robots, width, height)
     room = RectangularRoom(width, height)
 
     robots = []
@@ -272,26 +275,25 @@ def runSimulation(num_robots, speed, width, height, min_coverage, num_trials,
         for robot in robots:
             robot.updatePositionAndClean()
 
+        if visualize:
+            anim.update(room, robots)
+
         totalTile = room.getNumTiles()
         cleanedTile = room.getNumCleanedTiles()
         percent = cleanedTile/1.0/totalTile
+        result_code.append(percent)
         if percent > min_coverage:
-            str_ = 'One robot takes around %d clock ticks to clean %s of a 10x10 room. ' % (time, (percent*100))
-            result_code.append(str_)
+            break
 
-        if visualize:
-            anim.update(room, robots)
-        else:
-            pass
-    anim.done()
+    if visualize:
+        anim.done()
 
-def testSimulation()
+    return result_code
+
+def testSimulation():
     runSimulation(10, 1.2, 10, 15, 0.8, 40, Robot, True)
 
 # testSimulation()
-
-def testProblemSet4():
-    pass
 
 # === Provided function
 def computeMeans(list_of_lists):
@@ -328,27 +330,76 @@ def showPlot1():
     """
     Produces a plot showing dependence of cleaning time on room size.
     """
-    # TODO: Your code goes here
+    num_trails = 700
+    result5 = runSimulation(1, 1.0, 5, 5, 0.75, num_trails, Robot, False)
+    result10 = runSimulation(1, 1.0, 10, 10, 0.75, num_trails, Robot, False)
+    result15 = runSimulation(1, 1.0, 15, 15, 0.75, num_trails, Robot, False)
+    result20 = runSimulation(1, 1.0, 20, 20, 0.75, num_trails, Robot, False)
+    result25 = runSimulation(1, 1.0, 25, 25, 0.75, num_trails, Robot, False)
+
+    name_list = ['5*5', '10*10', '15*15', '20*20', '25*25']
+    num_list = [len(result5), len(result10), len(result15), len(result20), len(result25)]
+    plt.bar(range(len(num_list)), num_list, tick_label=name_list)
+    plt.title('1. time VS. room size')
+    plt.ylabel('cleaning time')
+    plt.show()
 
 def showPlot2():
     """
     Produces a plot showing dependence of cleaning time on number of robots.
     """
-    # TODO: Your code goes here
+    # fig, ax = plt.subplot()
+    num_trails = 1000
+    clean_time = []
+    for single_b in range(11):
+        result = runSimulation(single_b, 1.0, 25, 25, 0.75, num_trails, Robot, False)
+        clean_time.append(len(result))
+    plt.plot(range(11), clean_time, '-o')
+    plt.show()
+
 
 def showPlot3():
     """
     Produces a plot showing dependence of cleaning time on room shape.
     """
-    # TODO: Your code goes here
+    num_trails = 1000
+    result1 = runSimulation(1, 1.0, 20, 20, 0.75, num_trails, Robot, False)
+    result2 = runSimulation(1, 1.0, 25, 16, 0.75, num_trails, Robot, False)
+    result3 = runSimulation(1, 1.0, 40, 10, 0.75, num_trails, Robot, False)
+    result4 = runSimulation(1, 1.0, 50, 8, 0.75, num_trails, Robot, False)
+    result5 = runSimulation(1, 1.0, 80, 5, 0.75, num_trails, Robot, False)
+    name_list = ['20/20', '25*16', '40*10', '50*8', '80*5']
+    num_list = [len(result1), len(result2), len(result3), len(result4), len(result5)]
+    plt.bar(range(len(num_list)), num_list, tick_label=name_list)
+    plt.show()
+
 
 def showPlot4():
     """
     Produces a plot showing cleaning time vs. percentage cleaned, for
     each of 1-5 robots.
     """
-    # TODO: Your code goes here
+    percent_list = []
+    for i in range(0, 10):
+        percent_list.append(i*0.1)
 
+    legeng_name = []
+    num_trails = 2000
+    for robot_num in range(1, 6):
+        result_curve = []
+        for cover in percent_list:
+            result1 = runSimulation(robot_num, 1.0, 25, 25, 0.75, num_trails, Robot, False)
+            result_curve.append(len(result1))
+        plt.plot(percent_list, result_curve, '-o')
+        legeng_name.append('robot_num %d' % robot_num)
+    plt.legend(tuple(legeng_name))
+    plt.show()
+
+
+# showPlot1()
+# showPlot2()
+# showPlot3()
+# showPlot4()
 
 # === Problem 5
 
@@ -358,7 +409,28 @@ class RandomWalkRobot(BaseRobot):
     strategy: it chooses a new direction at random after each
     time-step.
     """
-    # TODO: Your code goes here
+    def updatePositionAndClean(self):
+        """
+        Simulate the passage of a single time-step.
+
+        Move the robot to a new position and mark the tile it is on as having
+        been cleaned.
+        """
+        pos = self.getRobotPosition()
+        self.d = random.randint(0, 360 - 1)  # new direction
+        while True:
+            new_pos = pos.getNewPosition(self.d, self.speed)
+            if self.room.isPositionInRoom(new_pos):
+                self.room.cleanTileAtPosition(new_pos)
+                self.setRobotPosition(new_pos)
+                break
+            else:
+                self.d = random.randint(0, 360 - 1)  # new direction
+
+def testRandomWalkRobot():
+    runSimulation(10, 1.2, 10, 15, 0.8, 40, RandomWalkRobot, True)
+
+# testRandomWalkRobot()
 
 
 # === Problem 6
@@ -367,4 +439,25 @@ def showPlot5():
     """
     Produces a plot comparing the two robot strategies.
     """
-    # TODO: Your code goes here
+    #  主要依据：清理能能力——不同数量、面积（规模）、不同覆盖率、不同速度
+    num_trails = 3000
+    robot_type = [Robot, RandomWalkRobot]
+
+    legend_list = []
+    for robot_ in robot_type:
+        clean_time = []
+        for single_b in range(1, 6):
+            result = runSimulation(single_b, 1.0, 25, 25, 0.75, num_trails, robot_, False)
+            clean_time.append(len(result))
+        if robot_ == Robot:
+            legend_list.append('Robot')
+        else:
+            legend_list.append('RandomWalkRobot')
+        plt.plot(range(1, 6), clean_time, '-o')
+    plt.legend(legend_list)
+    plt.show()
+
+showPlot5()
+
+# total cost about 3 hours
+
