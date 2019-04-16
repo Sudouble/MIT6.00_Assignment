@@ -7,6 +7,7 @@
 import numpy
 import random
 import pylab
+import matplotlib.pyplot as plt
 import copy
 
 
@@ -76,6 +77,7 @@ class SimpleVirus(object):
         else:
             return NoChildException("No Child")
 
+
 class SimplePatient(object):
     """
     Representation of a simplified patient. The patient does not take any drugs
@@ -125,7 +127,7 @@ class SimplePatient(object):
             # print virus
             if virus.doesClear():
                 self.viruses.remove(virus)
-            density = len(self.viruses) /1.0/self.maxPop
+            density = len(self.viruses) / 1.0 / self.maxPop
             re_val = virus.reproduce(density)
             if type(re_val) == SimpleVirus:
                 tmpViruses.append(re_val)
@@ -164,6 +166,7 @@ def problem2():
     pylab.ylabel("Population")
     pylab.title("12...")
     pylab.show()
+
 
 # problem2()
 
@@ -251,29 +254,27 @@ class ResistantVirus(SimpleVirus):
         maxBirthProb and clearProb values as this virus. Raises a
         NoChildException if this virus particle does not reproduce.
         """
-        result = NoChildException("No Child")
         for drug in activeDrugs:
             if not self.getResistance(drug):
-                result = NoChildException("No Child")
-                break
+                return NoChildException("No Child")
 
-            reproduce = self.maxBirthProb * (1-popDensity)
-            if random.random() < reproduce:
-                result = ResistantVirus(self.maxBirthProb,self.clearProb,self.resistance,self.mutProb)
-                break
+        reproduce = self.maxBirthProb * (1 - popDensity)
+        if random.random() < reproduce:
+            result = ResistantVirus(self.maxBirthProb, self.clearProb, copy.deepcopy(self.resistance), self.mutProb)
 
-        hit_prob = not (random.random() < self.mutProb)
-        for d_drug in self.resistance:
-            if self.getResistance(d_drug):
-                self.resistance.setdefault(d_drug, hit_prob)
-            else:
-                other_hit_prob = not hit_prob
-                self.resistance.setdefault(d_drug, other_hit_prob)
-
-        return result
-
-
-
+            prob_le = random.random() < self.mutProb
+            for d_drug in self.resistance:
+                if prob_le:
+                    # result.resistance[d_drug] = not result.resistance[d_drug]
+                    if result.getResistance(d_drug):
+                        result.resistance[d_drug] = False
+                    else:
+                        result.resistance[d_drug] = True
+                else:
+                    result.resistance[d_drug] = self.resistance[d_drug]
+            return result
+        else:
+            return NoChildException("No Child")
 
 class Patient(SimplePatient):
     """
@@ -331,7 +332,7 @@ class Patient(SimplePatient):
         count = 0
         for virus in self.viruses:
             for resist in drugResist:
-                if not virus.getResist(resist):
+                if not virus.getResistance(resist):
                     break
             else:
                 count += 1
@@ -357,7 +358,7 @@ class Patient(SimplePatient):
         integer)
         """
         tmp_viruses = []
-        pop_density = len(self.viruses)/1.0/self.maxPop
+        pop_density = len(self.viruses) / 1.0 / self.maxPop
         for virus in self.viruses:
             if virus.doesClear():
                 self.viruses.remove(virus)
@@ -373,7 +374,6 @@ class Patient(SimplePatient):
         tmp_viruses.extend(self.viruses)
         self.viruses = tmp_viruses
         return len(self.viruses)
-
 
 
 #
@@ -402,21 +402,25 @@ def problem4():
         viruses.append(resist_virus)
 
     patient = Patient(viruses, maxPop)
-    patient.addPrescription('guttagonol')
 
-    trail_time = 150
-
+    trail_time = 300
     size_ = []
+    resist_size = []
     for gen in xrange(trail_time):
         size_.append(patient.update())
+        if gen == 150:
+            patient.addPrescription('guttagonol')
+        resist_size.append(patient.getResistPop(['guttagonol']))
 
+    pylab.plot(xrange(trail_time), resist_size)
     pylab.plot(xrange(trail_time), size_)
     pylab.xlabel("size")
     pylab.ylabel("Population")
     pylab.title("virus population iteration")
     pylab.show()
 
-problem4()
+
+# problem4()
 
 #
 # PROBLEM 5
@@ -433,8 +437,37 @@ def problem5():
     150, 75, 0 timesteps (followed by an additional 150 timesteps of
     simulation).
     """
-    # TODO
+    maxBirthProb = 0.1
+    clearProb = 0.05
+    maxPop = 1000
+    mutProb = 0.005
+    resitances = {'guttagonol': False}
 
+    trail_times = [300, 150, 75, 0]
+    result = []
+    for trail_time in trail_times:
+        viruses = []
+        for i in range(100):
+            resist_virus = ResistantVirus(maxBirthProb, clearProb, resitances, mutProb)
+            viruses.append(resist_virus)
+
+        patient = Patient(viruses, maxPop)
+        size_ = []
+        for gen in xrange(trail_time):
+            size_.append(patient.update())
+
+        for treat_time in xrange(150):
+            patient.addPrescription('guttagonol')
+            size_.append(patient.update())
+
+        result.append(size_[-1])
+    print result
+
+    name_list = ['300', '150', '75', '0']
+    plt.bar(range(len(result)), result, tick_label=name_list)
+    plt.show()
+
+# problem5()
 
 #
 # PROBLEM 6
@@ -451,8 +484,44 @@ def problem6():
     150, 75, 0 timesteps between adding drugs (followed by an additional 150
     timesteps of simulation).
     """
-    # TODO
+    maxBirthProb = 0.1
+    clearProb = 0.05
+    maxPop = 1000
+    mutProb = 0.005
+    resitances = {'guttagonol': False, 'grimpex': False}
 
+    trail_times = [300, 150, 75, 0]
+    for trail_time in trail_times:
+        result = []
+        for repeat in range(30):
+            viruses = []
+            for i in range(100):
+                resist_virus = ResistantVirus(maxBirthProb, clearProb, resitances, mutProb)
+                viruses.append(resist_virus)
+
+            patient = Patient(viruses, maxPop)
+
+            size_ = []
+            # stage 1
+            for gen in xrange(150):
+                size_.append(patient.update())
+            patient.addPrescription('guttagonol')
+            # stage 2
+            for gen in xrange(trail_time):
+                size_.append(patient.update())
+            patient.addPrescription('grimpex')
+            # stage 3
+            for treat_time in xrange(150):
+                size_.append(patient.update())
+            result.append(size_[-1])
+
+        plt.figure()
+        plt.bar(range(len(result)), result)
+        plt.title(str(trail_time))
+
+    plt.show()
+
+# problem6()
 
 #
 # PROBLEM 7
@@ -467,4 +536,67 @@ def problem7():
     simulation with a 300 time step delay between administering the 2 drugs and
     a simulations for which drugs are administered simultaneously.
     """
-    # TODO
+    maxBirthProb = 0.1
+    clearProb = 0.05
+    maxPop = 1000
+    mutProb = 0.005
+    resitances = {'guttagonol': False, 'grimpex': False}
+
+    trail_times = [300]
+    result = []
+    for trail_time in trail_times:
+        viruses = []
+        for i in range(100):
+            resist_virus = ResistantVirus(maxBirthProb, clearProb, resitances, mutProb)
+            viruses.append(resist_virus)
+
+        patient = Patient(viruses, maxPop)
+
+        size_ = []
+        # stage 1
+        for gen in xrange(150):
+            size_.append(patient.update())
+        patient.addPrescription('guttagonol')
+        # stage 2
+        for gen in xrange(trail_time):
+            size_.append(patient.update())
+        patient.addPrescription('grimpex')
+        # stage 3
+        for treat_time in xrange(150):
+            size_.append(patient.update())
+        result.extend(size_)
+
+    plt.figure()
+    plt.plot(range(len(result)), result)
+    plt.title("Trail 1")
+    plt.show()
+
+    # 2
+    trail_times = [150]
+    result = []
+    for trail_time in trail_times:
+        viruses = []
+        for i in range(100):
+            resist_virus = ResistantVirus(maxBirthProb, clearProb, resitances, mutProb)
+            viruses.append(resist_virus)
+
+        patient = Patient(viruses, maxPop)
+
+        size_ = []
+        # stage 1
+        for gen in xrange(150):
+            size_.append(patient.update())
+        patient.addPrescription('guttagonol')
+        patient.addPrescription('grimpex')
+        # stage 2
+        for treat_time in xrange(150):
+            size_.append(patient.update())
+        result.extend(size_)
+
+    plt.figure()
+    plt.plot(range(len(result)), result)
+    plt.title("Trail 2")
+    plt.show()
+
+problem7()
+
